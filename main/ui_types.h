@@ -97,6 +97,7 @@ typedef struct
     char alertMsg[MAX_ALERT_LEN];
     uint32_t alertTime;
     bool needsFullRedraw;
+    bool needsNavbarRedraw; // Separate flag for navbar
     int16_t lastTouchX;
     int16_t lastTouchY;
     uint32_t lastTouchTime;

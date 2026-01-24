@@ -111,6 +111,18 @@ void draw_button(UIButton *btn);
 void draw_icon(int16_t x, int16_t y, int16_t size, uint16_t color);
 
 /**
+ * @brief Draw a monochrome bitmap icon from PROGMEM
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param bitmap Pointer to bitmap data in PROGMEM
+ * @param w Width in pixels
+ * @param h Height in pixels
+ * @param color Foreground color
+ */
+void draw_iconBitmap(int16_t x, int16_t y, const unsigned char *bitmap,
+                     int16_t w, int16_t h, uint16_t color);
+
+/**
  * @brief Draw a progress bar
  * @param x X coordinate
  * @param y Y coordinate

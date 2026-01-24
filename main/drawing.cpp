@@ -148,6 +148,33 @@ void draw_icon(int16_t x, int16_t y, int16_t size, uint16_t color)
     draw_fillRect(x, y, size, size, color);
 }
 
+void draw_iconBitmap(int16_t x, int16_t y, const unsigned char *bitmap,
+                     int16_t w, int16_t h, uint16_t color)
+{
+    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+    uint8_t byte = 0;
+
+    for (int16_t j = 0; j < h; j++)
+    {
+        for (int16_t i = 0; i < w; i++)
+        {
+            if (i & 7)
+            {
+                byte <<= 1;
+            }
+            else
+            {
+                byte = pgm_read_byte(&bitmap[j * byteWidth + i / 8]);
+            }
+
+            if (byte & 0x80)
+            {
+                draw_pixel(x + i, y + j, color);
+            }
+        }
+    }
+}
+
 void draw_progressBar(int16_t x, int16_t y, int16_t w, int16_t h,
                       uint8_t percent, uint16_t fgColor, uint16_t bgColor)
 {

@@ -7,6 +7,7 @@
 #include "drawing.h"
 #include "touch_driver.h"
 #include "screens.h"
+#include "icons.h"
 #include <string.h>
 
 // ===================================
@@ -62,6 +63,7 @@ void ui_init(void)
     uiState.alertMsg[0] = '\0';
     uiState.alertTime = 0;
     uiState.needsFullRedraw = true;
+    uiState.needsNavbarRedraw = true; // Initialize new flag
     uiState.lastTouchX = -1;
     uiState.lastTouchY = -1;
     uiState.lastTouchTime = 0;
@@ -221,6 +223,7 @@ void ui_hideAlert(void)
         millis() - uiState.alertTime > ALERT_TIMEOUT_MS)
     {
         uiState.alertType = UI_ALERT_NONE;
+        // Only clear the alert area, not redraw the whole screen
         draw_fillRect(0, CONTENT_Y, SCREEN_WIDTH, 30, COLOR_WHITE);
     }
 }
@@ -228,6 +231,33 @@ void ui_hideAlert(void)
 // ===================================
 // Screen Management
 // ===================================
+
+// Helper function to redraw a single navbar button
+static void ui_drawNavbarButton(int index)
+{
+    const uint16_t navColors[] = {COLOR_BLUE, COLOR_GREEN, COLOR_ORANGE, COLOR_GRAY, COLOR_CYAN};
+    const int navWidth = SCREEN_WIDTH / 5;
+
+    if (index < 0 || index >= 5)
+    {
+        return;
+    }
+
+    int16_t btnX = index * navWidth;
+    uint16_t bgColor = (uiState.currentScreen == index) ? navColors[index] : COLOR_DARKGRAY;
+    uint16_t iconColor = (uiState.currentScreen == index) ? COLOR_WHITE : COLOR_LIGHTGRAY;
+
+    // Button background
+    draw_fillRect(btnX, NAVBAR_Y, navWidth, NAVBAR_HEIGHT, bgColor);
+
+    // Draw icon from PROGMEM
+    int16_t iconX = btnX + (navWidth - ICON_WIDTH) / 2;
+    int16_t iconY = NAVBAR_Y + (NAVBAR_HEIGHT - ICON_HEIGHT) / 2;
+
+    // Get the icon bitmap from the array
+    const unsigned char *iconBitmap = (const unsigned char *)pgm_read_ptr(&navbar_icons[index]);
+    draw_iconBitmap(iconX, iconY, iconBitmap, ICON_WIDTH, ICON_HEIGHT, iconColor);
+}
 
 void ui_setScreen(ScreenID screen)
 {
@@ -240,9 +270,17 @@ void ui_setScreen(ScreenID screen)
         return;
     }
 
+    ScreenID oldScreen = uiState.currentScreen;
     uiState.lastScreen = uiState.currentScreen;
     uiState.currentScreen = screen;
+
+    // Only redraw the two navbar buttons that changed (old and new)
+    ui_drawNavbarButton(oldScreen); // Unhighlight old
+    ui_drawNavbarButton(screen);    // Highlight new
+
+    // Trigger content area redraw, but NOT navbar redraw (we just did that manually)
     uiState.needsFullRedraw = true;
+    uiState.needsNavbarRedraw = false; // Navbar already updated above
 
     // Clear screen-specific data
     ui_clearValues();
@@ -276,25 +314,35 @@ void ui_requestRedraw(void)
 void ui_drawHeader(const char *title)
 {
     draw_fillRect(0, 0, SCREEN_WIDTH, HEADER_HEIGHT, COLOR_BLUE);
+
+    // Draw status indicators within the header
+    // Battery (left side)
+    draw_battery(5, 10, uiState.batteryLevel);
+
+    // GPS indicator
+    draw_gpsIndicator(35, 10, uiState.gpsLock);
+
+    // GSM signal (right side)
+    draw_gsmSignal(SCREEN_WIDTH - 30, 8, uiState.gsmSignal);
+
     // Note: Title text rendering would require a font library
 }
 
 void ui_drawStatus(void)
 {
-    draw_fillRect(0, HEADER_HEIGHT, SCREEN_WIDTH, STATUS_HEIGHT, COLOR_DARKGRAY);
-
-    // Battery (left side)
-    draw_battery(5, HEADER_HEIGHT + 5, uiState.batteryLevel);
-
-    // GPS indicator
-    draw_gpsIndicator(35, HEADER_HEIGHT + 5, uiState.gpsLock);
-
-    // GSM signal (right side)
-    draw_gsmSignal(SCREEN_WIDTH - 30, HEADER_HEIGHT + 3, uiState.gsmSignal);
+    // Status bar is now integrated into header, so this function does nothing
+    // Kept for compatibility
 }
 
 void ui_drawFooter(void)
 {
+    // Only draw when needsNavbarRedraw is set (initial load only)
+    // Screen changes update navbar manually in ui_setScreen()
+    if (!uiState.needsNavbarRedraw)
+    {
+        return;
+    }
+
     draw_fillRect(0, NAVBAR_Y, SCREEN_WIDTH, NAVBAR_HEIGHT, COLOR_DARKGRAY);
 
     const uint16_t navColors[] = {COLOR_BLUE, COLOR_GREEN, COLOR_ORANGE, COLOR_GRAY, COLOR_CYAN};
@@ -303,15 +351,23 @@ void ui_drawFooter(void)
     for (int i = 0; i < 5; i++)
     {
         int16_t btnX = i * navWidth;
-        uint16_t color = (uiState.currentScreen == i) ? navColors[i] : COLOR_LIGHTGRAY;
+        uint16_t bgColor = (uiState.currentScreen == i) ? navColors[i] : COLOR_DARKGRAY;
+        uint16_t iconColor = (uiState.currentScreen == i) ? COLOR_WHITE : COLOR_LIGHTGRAY;
 
         // Button background
-        draw_fillRect(btnX, NAVBAR_Y, navWidth, NAVBAR_HEIGHT, color);
-        draw_fillRect(btnX + 2, NAVBAR_Y + 2, navWidth - 4, NAVBAR_HEIGHT - 4, COLOR_DARKGRAY);
+        draw_fillRect(btnX, NAVBAR_Y, navWidth, NAVBAR_HEIGHT, bgColor);
 
-        // Simple icon representation (colored square)
-        draw_icon(btnX + (navWidth - 18) / 2, NAVBAR_Y + 8, 18, navColors[i]);
+        // Draw icon from PROGMEM
+        int16_t iconX = btnX + (navWidth - ICON_WIDTH) / 2;
+        int16_t iconY = NAVBAR_Y + (NAVBAR_HEIGHT - ICON_HEIGHT) / 2;
+
+        // Get the icon bitmap from the array
+        const unsigned char *iconBitmap = (const unsigned char *)pgm_read_ptr(&navbar_icons[i]);
+        draw_iconBitmap(iconX, iconY, iconBitmap, ICON_WIDTH, ICON_HEIGHT, iconColor);
     }
+
+    // Clear the flag after drawing
+    uiState.needsNavbarRedraw = false;
 }
 
 void ui_drawScreen(void)
@@ -321,6 +377,7 @@ void ui_drawScreen(void)
         return;
     }
 
+    // Draw header and status only on full redraw
     ui_drawHeader("Farm Monitor");
     ui_drawStatus();
 
@@ -359,7 +416,9 @@ void ui_setGSM(uint8_t signal)
     if (uiState.gsmSignal != signal)
     {
         uiState.gsmSignal = signal;
-        ui_drawStatus();
+        // Only redraw the GSM signal area within the header
+        draw_fillRect(SCREEN_WIDTH - 35, 0, 35, HEADER_HEIGHT, COLOR_BLUE);
+        draw_gsmSignal(SCREEN_WIDTH - 30, 8, uiState.gsmSignal);
     }
 }
 
@@ -368,7 +427,9 @@ void ui_setBattery(uint8_t level)
     if (uiState.batteryLevel != level)
     {
         uiState.batteryLevel = level;
-        ui_drawStatus();
+        // Only redraw the battery area within the header
+        draw_fillRect(0, 0, 30, HEADER_HEIGHT, COLOR_BLUE);
+        draw_battery(5, 10, uiState.batteryLevel);
     }
 }
 
@@ -377,7 +438,9 @@ void ui_setGPS(bool locked)
     if (uiState.gpsLock != locked)
     {
         uiState.gpsLock = locked;
-        ui_drawStatus();
+        // Only redraw the GPS indicator area within the header
+        draw_fillRect(30, 0, 20, HEADER_HEIGHT, COLOR_BLUE);
+        draw_gpsIndicator(35, 10, uiState.gpsLock);
     }
 }
 
