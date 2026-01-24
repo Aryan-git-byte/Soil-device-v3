@@ -22,7 +22,7 @@
 void touch_initPins(void);
 
 /**
- * @brief Transfer a byte via software SPI
+ * @brief Transfer a byte via hardware SPI
  * @param data Byte to send
  * @return Received byte
  */

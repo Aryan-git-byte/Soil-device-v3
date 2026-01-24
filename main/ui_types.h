@@ -104,6 +104,10 @@ typedef struct
     uint8_t gsmSignal;
     uint8_t batteryLevel;
     bool gpsLock;
+
+    // File browser state
+    int16_t fileScrollOffset; // Current scroll position
+    int16_t totalFiles;       // Total number of files
 } UIState;
 
 // ===================================

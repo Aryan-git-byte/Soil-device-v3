@@ -4,47 +4,41 @@
  */
 
 #include "touch_driver.h"
+#include <SPI.h>
 
 // ===================================
-// Touch Low Level SPI
+// Touch Low Level SPI (Hardware SPI)
 // ===================================
 
 void touch_initPins(void)
 {
     pinMode(T_CS, OUTPUT);
     pinMode(T_IRQ, INPUT);
-    pinMode(T_DIN, OUTPUT);
-    pinMode(T_DO, INPUT);
-    pinMode(T_CLK, OUTPUT);
 
     digitalWrite(T_CS, HIGH);
-    digitalWrite(T_CLK, LOW);
+
+    // SPI is already initialized by TFT driver
+    // XPT2046 typically runs at lower speed than ILI9341
 }
 
 uint8_t touch_spiTransfer(uint8_t data)
 {
-    uint8_t reply = 0;
-    for (int8_t i = 7; i >= 0; i--)
-    {
-        digitalWrite(T_CLK, LOW);
-        digitalWrite(T_DIN, (data >> i) & 0x01);
-        digitalWrite(T_CLK, HIGH);
-        reply <<= 1;
-        if (digitalRead(T_DO))
-        {
-            reply |= 1;
-        }
-    }
-    return reply;
+    return SPI.transfer(data);
 }
 
 uint16_t touch_read(uint8_t command)
 {
+    // Use slower SPI speed for touch controller (2MHz)
+    SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
+
     digitalWrite(T_CS, LOW);
-    touch_spiTransfer(command);
-    uint8_t high = touch_spiTransfer(0x00);
-    uint8_t low = touch_spiTransfer(0x00);
+    SPI.transfer(command);
+    uint8_t high = SPI.transfer(0x00);
+    uint8_t low = SPI.transfer(0x00);
     digitalWrite(T_CS, HIGH);
+
+    SPI.endTransaction();
+
     return ((high << 8) | low) >> 3;
 }
 
