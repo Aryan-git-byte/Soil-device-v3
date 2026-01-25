@@ -157,9 +157,15 @@ void tft_init(void)
     tft_writeCommand(ILI9341_VMCTR2);
     tft_writeData(0x86);
 
-    // Memory access control (rotation)
+    // Memory access control (rotation) - PORTRAIT MODE
+    // For 240x320 portrait display, normal orientation
+    // Bit 7: MY (Row Address Order) = 0
+    // Bit 6: MX (Column Address Order) = 0
+    // Bit 5: MV (Row/Column Exchange) = 1 (swap X/Y for portrait)
+    // Bit 4: ML (Vertical Refresh Order) = 1
+    // Bit 3: BGR (RGB-BGR Order) = 1
     tft_writeCommand(ILI9341_MADCTL);
-    tft_writeData(0x68);
+    tft_writeData(0x28); // Portrait mode, normal (not mirrored)
 
     // Pixel format
     tft_writeCommand(ILI9341_PIXFMT);

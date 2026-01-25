@@ -21,7 +21,7 @@
 #include "drawing.h"
 #include "ui_engine.h"
 #include "screens.h"
-#include "file_browser.h"  // ← This line MUST be here!
+#include "file_browser.h"
 
 // ===================================
 // Application Configuration
@@ -30,10 +30,13 @@
 // Sensor update interval in milliseconds
 #define APP_SENSOR_UPDATE_INTERVAL 2000
 
+// SD Card CS Pin - CHANGE THIS TO YOUR ACTUAL SD CARD CS PIN
+#define SD_CS_PIN 4  // Common default, adjust if different
+
 // ===================================
 // Application State
 // ===================================
-FileBrowser sdBrowser;  // <-- Make sure this line exists!
+FileBrowser sdBrowser;
 
 static uint32_t lastSensorUpdate = 0;
 
@@ -50,6 +53,63 @@ void updateSensorValues(void)
     ui_updateValue(LABEL_NITROGEN, random(30, 90));
     ui_updateValue(LABEL_PHOSPHORUS, random(25, 75));
     ui_updateValue(LABEL_POTASSIUM, random(35, 85));
+}
+
+// ===================================
+// SD Card Initialization with Debugging
+// ===================================
+
+void initSDCard() {
+    SerialUSB.println(F("\n=== SD Card Initialization ==="));
+    SerialUSB.print(F("SD CS Pin: "));
+    SerialUSB.println(SD_CS_PIN);
+    
+    // Try to initialize SD card
+    if (!sdBrowser.begin(SD_CS_PIN)) {
+        SerialUSB.println(F("ERROR: SD Card initialization failed!"));
+        SerialUSB.println(F("Possible issues:"));
+        SerialUSB.println(F("  1. No SD card inserted"));
+        SerialUSB.println(F("  2. Wrong CS pin (check SD_CS_PIN)"));
+        SerialUSB.println(F("  3. SD card not formatted (use FAT16/FAT32)"));
+        SerialUSB.println(F("  4. Wiring issues"));
+        SerialUSB.println(F("  5. SD card corrupted"));
+        
+        // Show alert on screen
+        ui_showAlert("SD Card Failed!", UI_ALERT_ERROR);
+        return;
+    }
+    
+    SerialUSB.println(F("SUCCESS: SD Card initialized!"));
+    
+    // Get file count
+    int fileCount = sdBrowser.getFileCount();
+    SerialUSB.print(F("Files found: "));
+    SerialUSB.println(fileCount);
+    
+    // List all files
+    if (fileCount > 0) {
+        SerialUSB.println(F("\n--- Root Directory Contents ---"));
+        for (int i = 0; i < fileCount; i++) {
+            FileEntry* entry = sdBrowser.getFile(i);
+            if (entry) {
+                SerialUSB.print(i);
+                SerialUSB.print(F(": "));
+                SerialUSB.print(entry->name);
+                if (entry->isDirectory) {
+                    SerialUSB.println(F(" [DIR]"));
+                } else {
+                    SerialUSB.print(F(" ("));
+                    SerialUSB.print(entry->size);
+                    SerialUSB.println(F(" bytes)"));
+                }
+            }
+        }
+        SerialUSB.println(F("-------------------------------\n"));
+    } else {
+        SerialUSB.println(F("WARNING: SD card is empty or root directory has no files"));
+    }
+    
+    SerialUSB.println(F("=== SD Card Initialization Complete ===\n"));
 }
 
 // ===================================
@@ -85,6 +145,9 @@ void setup()
     ui_setBattery(75);
     ui_setGSM(80);
     ui_setGPS(true);
+
+    // Initialize SD Card with debugging
+    initSDCard();
 
     SerialUSB.println(F("=== System Ready ===\n"));
 }

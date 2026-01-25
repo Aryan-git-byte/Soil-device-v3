@@ -105,7 +105,8 @@ bool touch_getPoint(int16_t *x, int16_t *y)
     }
 
     // Map raw values to screen coordinates
-    *x = map(rawX, TS_MAXX, TS_MINX, 0, SCREEN_WIDTH);
+    // FIXED: Swapped TS_MINX and TS_MAXX to flip horizontally
+    *x = map(rawX, TS_MINX, TS_MAXX, 0, SCREEN_WIDTH);
     *y = map(rawY, TS_MAXY, TS_MINY, 0, SCREEN_HEIGHT);
 
     // Constrain to screen bounds
