@@ -21,6 +21,7 @@ static UIState uiState = {
     "",            // alertMsg
     0,             // alertTime
     true,          // needsFullRedraw
+    true,          // needsNavbarRedraw
     -1,            // lastTouchX
     -1,            // lastTouchY
     0,             // lastTouchTime
@@ -63,7 +64,7 @@ void ui_init(void)
     uiState.alertMsg[0] = '\0';
     uiState.alertTime = 0;
     uiState.needsFullRedraw = true;
-    uiState.needsNavbarRedraw = true; // Initialize new flag
+    uiState.needsNavbarRedraw = true;
     uiState.lastTouchX = -1;
     uiState.lastTouchY = -1;
     uiState.lastTouchTime = 0;
@@ -477,7 +478,14 @@ void ui_handleTouch(int16_t x, int16_t y)
         return;
     }
 
-    // Check buttons
+    // Screen-specific touch handling
+    if (uiState.currentScreen == SCREEN_FILES)
+    {
+        screen_files_handleTouch(x, y);
+        return;
+    }
+
+    // Check buttons for other screens
     for (int i = 0; i < buttonCount; i++)
     {
         if (ui_checkButton(&buttons[i], x, y))
@@ -490,7 +498,7 @@ void ui_handleTouch(int16_t x, int16_t y)
         }
     }
 
-    // Screen-specific touch handling could be added here
+    // Screen-specific touch handling could be added here for other screens
 }
 
 // ===================================

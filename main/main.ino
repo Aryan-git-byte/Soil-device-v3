@@ -21,6 +21,7 @@
 #include "drawing.h"
 #include "ui_engine.h"
 #include "screens.h"
+#include "file_browser.h"  // ← This line MUST be here!
 
 // ===================================
 // Application Configuration
@@ -32,6 +33,7 @@
 // ===================================
 // Application State
 // ===================================
+FileBrowser sdBrowser;  // <-- Make sure this line exists!
 
 static uint32_t lastSensorUpdate = 0;
 

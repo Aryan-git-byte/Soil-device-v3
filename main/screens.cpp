@@ -6,6 +6,14 @@
 #include "screens.h"
 #include "ui_engine.h"
 #include "drawing.h"
+#include "file_browser.h"
+
+// External reference to global SD browser
+extern FileBrowser sdBrowser;
+
+// File screen touch state
+static int lastTouchY = -1;
+static int touchStartY = -1;
 
 // ===================================
 // Home Screen - Sensor Dashboard
@@ -41,27 +49,163 @@ void screen_home_draw(void)
 }
 
 // ===================================
-// Files Screen
+// Files Screen - SD Card Browser
 // ===================================
 
 void screen_files_draw(void)
 {
     // Clear content area
     draw_fillRect(0, CONTENT_Y, SCREEN_WIDTH, CONTENT_HEIGHT, COLOR_WHITE);
-
-    const int16_t itemHeight = 40;
-    const int16_t margin = 10;
+    
+    const int16_t itemHeight = 45;
+    const int16_t margin = 5;
     const int16_t itemWidth = SCREEN_WIDTH - (margin * 2);
-
-    // File list items (placeholders)
-    for (int i = 0; i < 3; i++)
-    {
-        int16_t y = CONTENT_Y + margin + (i * (itemHeight + 10));
-        draw_fillRect(margin, y, itemWidth, itemHeight, COLOR_LIGHTGRAY);
-
-        // File icon placeholder
-        draw_fillRect(margin + 5, y + 5, 30, 30, COLOR_BLUE);
+    const int16_t iconSize = 30;
+    
+    // Draw current path header
+    draw_fillRect(margin, CONTENT_Y + 5, itemWidth, 25, COLOR_BLUE);
+    draw_fillRect(margin + 2, CONTENT_Y + 7, itemWidth - 4, 21, COLOR_DARKGRAY);
+    // Path text would be drawn here with font library
+    // For now, just a visual indicator
+    
+    // Starting Y position for items
+    int yPos = CONTENT_Y + 35;
+    
+    // Draw "Up" button if not in root directory
+    if (sdBrowser.canGoUp()) {
+        draw_fillRect(margin, yPos, itemWidth, itemHeight, COLOR_GRAY);
+        draw_rect(margin, yPos, itemWidth, itemHeight, COLOR_DARKGRAY);
+        
+        // Up arrow icon (yellow folder with ..)
+        draw_fillRect(margin + 5, yPos + 7, iconSize, iconSize, COLOR_YELLOW);
+        draw_fillRect(margin + 8, yPos + 10, iconSize - 6, iconSize - 6, COLOR_DARKGRAY);
+        
+        yPos += itemHeight + 5;
     }
+    
+    // Calculate visible items
+    int scrollOffset = sdBrowser.getScrollOffset();
+    int visibleItems = 4; // Show 4 files at a time
+    
+    // Draw files and folders
+    for (int i = 0; i < visibleItems && (scrollOffset + i) < sdBrowser.getFileCount(); i++) {
+        FileEntry* entry = sdBrowser.getFile(scrollOffset + i);
+        if (!entry) break;
+        
+        // Item background - highlight if selected
+        uint16_t bgColor = COLOR_LIGHTGRAY;
+        if (scrollOffset + i == sdBrowser.getSelectedIndex()) {
+            bgColor = COLOR_CYAN;
+        }
+        
+        draw_fillRect(margin, yPos, itemWidth, itemHeight, bgColor);
+        draw_rect(margin, yPos, itemWidth, itemHeight, COLOR_DARKGRAY);
+        
+        // Icon - yellow for folders, blue for files
+        uint16_t iconColor = entry->isDirectory ? COLOR_YELLOW : COLOR_BLUE;
+        draw_fillRect(margin + 5, yPos + 7, iconSize, iconSize, iconColor);
+        
+        // Inner icon detail
+        if (entry->isDirectory) {
+            // Folder tab
+            draw_fillRect(margin + 5, yPos + 7, 15, 8, COLOR_ORANGE);
+        } else {
+            // File lines
+            draw_hLine(margin + 10, yPos + 12, 20, COLOR_WHITE);
+            draw_hLine(margin + 10, yPos + 17, 20, COLOR_WHITE);
+            draw_hLine(margin + 10, yPos + 22, 20, COLOR_WHITE);
+            draw_hLine(margin + 10, yPos + 27, 20, COLOR_WHITE);
+        }
+        
+        // File name area (text would be drawn here with font)
+        // For now, just a placeholder
+        draw_fillRect(margin + iconSize + 10, yPos + 5, 120, 15, bgColor);
+        
+        // File size (if not directory)
+        if (!entry->isDirectory) {
+            // Size display area
+            draw_fillRect(margin + itemWidth - 60, yPos + 10, 55, 25, COLOR_WHITE);
+            draw_rect(margin + itemWidth - 60, yPos + 10, 55, 25, COLOR_DARKGRAY);
+            // Size text would be drawn here with font
+        } else {
+            // "[DIR]" indicator
+            draw_fillRect(margin + itemWidth - 45, yPos + 15, 40, 15, COLOR_ORANGE);
+        }
+        
+        yPos += itemHeight + 5;
+    }
+    
+    // Draw scroll indicator if needed
+    if (sdBrowser.getFileCount() > visibleItems) {
+        int totalScrollable = sdBrowser.getFileCount() - visibleItems;
+        int scrollBarHeight = max(20, (CONTENT_HEIGHT - 40) * visibleItems / sdBrowser.getFileCount());
+        int scrollBarMaxY = CONTENT_HEIGHT - 40 - scrollBarHeight;
+        int scrollBarY = CONTENT_Y + 35 + (totalScrollable > 0 ? 
+            (scrollOffset * scrollBarMaxY) / totalScrollable : 0);
+        
+        // Scroll track
+        draw_fillRect(SCREEN_WIDTH - 10, CONTENT_Y + 35, 8, CONTENT_HEIGHT - 40, COLOR_LIGHTGRAY);
+        // Scroll thumb
+        draw_fillRect(SCREEN_WIDTH - 10, scrollBarY, 8, scrollBarHeight, COLOR_BLUE);
+    }
+}
+
+void screen_files_handleTouch(int16_t x, int16_t y) {
+    const int16_t itemHeight = 45;
+    const int16_t margin = 5;
+    
+    // Handle scrolling with drag
+    if (touchStartY == -1) {
+        touchStartY = y;
+        lastTouchY = y;
+        return;
+    }
+    
+    int dragDelta = lastTouchY - y;
+    if (abs(dragDelta) > 10) {
+        // User is dragging - scroll
+        sdBrowser.scroll(dragDelta > 0 ? 1 : -1);
+        lastTouchY = y;
+        ui_requestRedraw();
+        return;
+    }
+    
+    // Click detection (not dragging)
+    if (abs(y - touchStartY) < 15) {
+        // It's a click
+        int yPos = CONTENT_Y + 35;
+        
+        // Check "Up" button
+        if (sdBrowser.canGoUp()) {
+            if (y >= yPos && y < yPos + itemHeight) {
+                sdBrowser.goUp();
+                ui_requestRedraw();
+                touchStartY = -1;
+                lastTouchY = -1;
+                return;
+            }
+            yPos += itemHeight + 5;
+        }
+        
+        // Check file/folder items
+        int scrollOffset = sdBrowser.getScrollOffset();
+        for (int i = 0; i < 4; i++) {
+            if ((scrollOffset + i) >= sdBrowser.getFileCount()) break;
+            
+            if (y >= yPos && y < yPos + itemHeight) {
+                sdBrowser.selectFile(scrollOffset + i);
+                ui_requestRedraw();
+                touchStartY = -1;
+                lastTouchY = -1;
+                return;
+            }
+            yPos += itemHeight + 5;
+        }
+    }
+    
+    // Reset touch state on release
+    touchStartY = -1;
+    lastTouchY = -1;
 }
 
 // ===================================

@@ -27,6 +27,13 @@ void screen_home_draw(void);
 void screen_files_draw(void);
 
 /**
+ * @brief Handle touch events on Files screen
+ * @param x X coordinate
+ * @param y Y coordinate
+ */
+void screen_files_handleTouch(int16_t x, int16_t y);
+
+/**
  * @brief Draw the AI screen
  */
 void screen_ai_draw(void);
