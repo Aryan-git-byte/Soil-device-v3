@@ -1,6 +1,6 @@
 /**
  * @file a9g_gps.cpp
- * @brief A9G GPS Module Implementation
+ * @brief A9G GPS Module Implementation with Debug Support
  */
 
 #include "a9g_gps.h"
@@ -17,6 +17,14 @@ A9G_GPS::A9G_GPS() {
     strcpy(gpsData.lastUpdate, "No Fix");
     lastGPSRead = 0;
     gpsReadInterval = 5000; // Read GPS every 5 seconds
+    
+    // Initialize debug info
+    strcpy(debugInfo.lastCommand, "None");
+    strcpy(debugInfo.lastResponse, "None");
+    strcpy(debugInfo.gpsStatus, "Initializing...");
+    strcpy(debugInfo.locationResponse, "No data");
+    debugInfo.lastUpdateTime = 0;
+    debugInfo.fixAttempts = 0;
 }
 
 bool A9G_GPS::begin() {
@@ -55,9 +63,11 @@ bool A9G_GPS::begin() {
     if (moduleOn) {
         SerialUSB.println(F("A9G: Module ready!"));
         turnOnGPS();
+        strcpy(debugInfo.gpsStatus, "Module Ready");
         return true;
     } else {
         SerialUSB.println(F("A9G: Failed to initialize!"));
+        strcpy(debugInfo.gpsStatus, "Init Failed");
         return false;
     }
 }
@@ -76,7 +86,12 @@ bool A9G_GPS::checkModuleState() {
 
 void A9G_GPS::turnOnGPS() {
     SerialUSB.println(F("A9G: Turning on GPS..."));
-    sendCommand("AT+GPS=1", 2000);
+    String response = sendCommand("AT+GPS=1", 2000);
+    
+    // Store in debug info
+    strncpy(debugInfo.lastCommand, "AT+GPS=1", 31);
+    strncpy(debugInfo.lastResponse, response.c_str(), 255);
+    
     sendCommand("AT+GPSRD=10", 1000); // Read NMEA every 10 seconds
 }
 
@@ -85,11 +100,62 @@ void A9G_GPS::turnOffGPS() {
     sendCommand("AT+GPS=0", 2000);
 }
 
+void A9G_GPS::refreshDebugInfo() {
+    SerialUSB.println(F("A9G: Refreshing debug info..."));
+    
+    // Check GPS status
+    String status = sendCommand("AT+GPS?", 1000);
+    strncpy(debugInfo.lastCommand, "AT+GPS?", 31);
+    strncpy(debugInfo.gpsStatus, status.c_str(), 63);
+    
+    SerialUSB.print(F("GPS Status: "));
+    SerialUSB.println(status);
+    
+    // Get location
+    String location = sendCommand("AT+LOCATION=2", 2000);
+    strncpy(debugInfo.locationResponse, location.c_str(), 127);
+    
+    SerialUSB.print(F("Location: "));
+    SerialUSB.println(location);
+    
+    debugInfo.lastUpdateTime = millis();
+}
+
 void A9G_GPS::update() {
     // Read GPS data periodically
     if (millis() - lastGPSRead > gpsReadInterval) {
+        debugInfo.fixAttempts++;
+        
+        // Get GPS status
+        String status = sendCommand("AT+GPS?", 1000);
+        strncpy(debugInfo.gpsStatus, status.c_str(), 63);
+        
+        // Get location
         String response = sendCommand("AT+LOCATION=2", 2000);
-        parseGPSLocation(response);
+        strncpy(debugInfo.lastCommand, "AT+LOCATION=2", 31);
+        strncpy(debugInfo.locationResponse, response.c_str(), 127);
+        
+        SerialUSB.print(F("A9G Location Response: "));
+        SerialUSB.println(response);
+        
+        // Check for errors or invalid data
+        if (response.indexOf("ERROR") >= 0) {
+            SerialUSB.println(F("WARNING: Location command returned ERROR!"));
+            gpsData.valid = false;
+            strncpy(debugInfo.lastResponse, "ERROR - No GPS fix", 255);
+        } else if (response.indexOf("0.000000,0.000000") >= 0) {
+            SerialUSB.println(F("WARNING: No GPS fix yet (0,0 coords)"));
+            gpsData.valid = false;
+            strncpy(debugInfo.lastResponse, "No fix (0,0)", 255);
+        } else if (response.indexOf("+LOCATION:") >= 0) {
+            parseGPSLocation(response);
+            strncpy(debugInfo.lastResponse, "Valid data received", 255);
+        } else {
+            SerialUSB.println(F("WARNING: Unexpected response format"));
+            strncpy(debugInfo.lastResponse, response.c_str(), 255);
+        }
+        
+        debugInfo.lastUpdateTime = millis();
         lastGPSRead = millis();
     }
     
@@ -121,11 +187,24 @@ void A9G_GPS::parseGPSLocation(String response) {
             String lat = locData.substring(0, comma1);
             gpsData.latitude = lat.toFloat();
             
+            // Validate latitude
+            if (gpsData.latitude == 0.0) {
+                SerialUSB.println(F("WARNING: Latitude is 0.0 - invalid fix!"));
+                gpsData.valid = false;
+                return;
+            }
+            
             // Parse longitude
             int comma2 = locData.indexOf(',', comma1 + 1);
             if (comma2 > 0) {
                 String lon = locData.substring(comma1 + 1, comma2);
                 gpsData.longitude = lon.toFloat();
+                
+                // Validate longitude range (should be around 85° for India)
+                if (gpsData.longitude < 60.0 || gpsData.longitude > 150.0) {
+                    SerialUSB.print(F("WARNING: Suspicious longitude: "));
+                    SerialUSB.println(gpsData.longitude);
+                }
                 
                 // Parse date/time
                 int comma3 = locData.indexOf(',', comma2 + 1);
@@ -136,12 +215,18 @@ void A9G_GPS::parseGPSLocation(String response) {
                     gpsData.lastUpdate[19] = '\0';
                 }
                 
-                gpsData.valid = true;
-                
-                SerialUSB.print(F("GPS: "));
-                SerialUSB.print(gpsData.latitude, 6);
-                SerialUSB.print(F(", "));
-                SerialUSB.println(gpsData.longitude, 6);
+                // Only mark as valid if both coordinates are non-zero
+                if (gpsData.latitude != 0.0 && gpsData.longitude != 0.0) {
+                    gpsData.valid = true;
+                    
+                    SerialUSB.print(F("GPS: "));
+                    SerialUSB.print(gpsData.latitude, 6);
+                    SerialUSB.print(F(", "));
+                    SerialUSB.println(gpsData.longitude, 6);
+                } else {
+                    gpsData.valid = false;
+                    SerialUSB.println(F("GPS: Invalid fix (zero coords)"));
+                }
             }
         }
     }
@@ -187,6 +272,10 @@ String A9G_GPS::sendCommand(String cmd, unsigned long timeout) {
 
 GPSData A9G_GPS::getGPSData() {
     return gpsData;
+}
+
+GPSDebugInfo A9G_GPS::getDebugInfo() {
+    return debugInfo;
 }
 
 bool A9G_GPS::isGPSValid() {

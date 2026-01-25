@@ -19,6 +19,7 @@ typedef enum
     SCREEN_AI,
     SCREEN_SETTINGS,
     SCREEN_INPUT,
+    SCREEN_GPS_DEBUG,  // NEW: GPS Debug Screen
     SCREEN_COUNT
 } ScreenID;
 

@@ -9,6 +9,7 @@
 #include "file_browser.h"
 #include "simple_font.h"
 #include <stdio.h>
+#include "a9g_gps.h"
 
 // External reference to global SD browser
 extern FileBrowser sdBrowser;
@@ -583,4 +584,185 @@ void screen_input_draw(void)
     draw_fillRect(startX + (keyW + keySpacing) * 3, funcY, keyW * 2 + keySpacing, keyH, COLOR_GREEN);
     draw_fillRect(startX + (keyW + keySpacing) * 3 + 2, funcY + 2,
                   keyW * 2 + keySpacing - 4, keyH - 4, COLOR_WHITE);
+}
+
+
+// External reference to GPS module (from main.ino)
+extern A9G_GPS gpsModule;
+
+// Scroll offset for GPS debug screen
+static int gpsDebugScrollOffset = 0;
+static bool gpsDebugNeedsRefresh = false;
+
+// ===================================
+// GPS Debug Screen - Shows all AT commands and responses
+// ===================================
+
+void screen_gps_debug_draw(void)
+{
+    SerialUSB.println(F("\n=== GPS Debug Screen Draw ==="));
+    
+    // Clear content area
+    draw_fillRect(0, CONTENT_Y, SCREEN_WIDTH, CONTENT_HEIGHT, COLOR_BLACK);
+    
+    // Get GPS data and debug info
+    GPSData gpsData = gpsModule.getGPSData();
+    GPSDebugInfo debugInfo = gpsModule.getDebugInfo();
+    
+    const int16_t margin = 5;
+    const int16_t lineHeight = 12;
+    int16_t yPos = CONTENT_Y + 5;
+    
+    // Title bar
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 20, COLOR_BLUE);
+    drawTruncatedText(margin + 5, yPos + 6, "GPS DEBUG INFO", SCREEN_WIDTH - 2*margin - 10, COLOR_BLUE);
+    yPos += 25;
+    
+    // GPS Status section
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 15, COLOR_DARKGRAY);
+    drawTruncatedText(margin + 3, yPos + 4, "Status:", SCREEN_WIDTH - 2*margin - 6, COLOR_DARKGRAY);
+    yPos += 17;
+    
+    // GPS valid/invalid
+    char statusText[64];
+    if (gpsData.valid) {
+        snprintf(statusText, sizeof(statusText), "VALID FIX");
+        draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_GREEN);
+    } else {
+        snprintf(statusText, sizeof(statusText), "NO FIX");
+        draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_RED);
+    }
+    drawTruncatedText(margin + 3, yPos + 2, statusText, SCREEN_WIDTH - 2*margin - 6, gpsData.valid ? COLOR_GREEN : COLOR_RED);
+    yPos += 14;
+    
+    // Coordinates section
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 15, COLOR_DARKGRAY);
+    drawTruncatedText(margin + 3, yPos + 4, "Coordinates:", SCREEN_WIDTH - 2*margin - 6, COLOR_DARKGRAY);
+    yPos += 17;
+    
+    // Latitude
+    char latText[32];
+    snprintf(latText, sizeof(latText), "Lat: %.6f", gpsData.latitude);
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_LIGHTGRAY);
+    drawTruncatedText(margin + 3, yPos + 2, latText, SCREEN_WIDTH - 2*margin - 6, COLOR_LIGHTGRAY);
+    yPos += 14;
+    
+    // Longitude
+    char lonText[32];
+    snprintf(lonText, sizeof(lonText), "Lon: %.6f", gpsData.longitude);
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_LIGHTGRAY);
+    drawTruncatedText(margin + 3, yPos + 2, lonText, SCREEN_WIDTH - 2*margin - 6, COLOR_LIGHTGRAY);
+    yPos += 14;
+    
+    // Satellites and altitude
+    char satText[32];
+    snprintf(satText, sizeof(satText), "Sats: %d  Alt: %.1fm", gpsData.satellites, gpsData.altitude);
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_LIGHTGRAY);
+    drawTruncatedText(margin + 3, yPos + 2, satText, SCREEN_WIDTH - 2*margin - 6, COLOR_LIGHTGRAY);
+    yPos += 14;
+    
+    // AT Commands section
+    yPos += 3;
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 15, COLOR_DARKGRAY);
+    drawTruncatedText(margin + 3, yPos + 4, "Last AT Command:", SCREEN_WIDTH - 2*margin - 6, COLOR_DARKGRAY);
+    yPos += 17;
+    
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_YELLOW);
+    drawTruncatedText(margin + 3, yPos + 2, debugInfo.lastCommand, SCREEN_WIDTH - 2*margin - 6, COLOR_YELLOW);
+    yPos += 14;
+    
+    // Response section
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 15, COLOR_DARKGRAY);
+    drawTruncatedText(margin + 3, yPos + 4, "GPS Status Resp:", SCREEN_WIDTH - 2*margin - 6, COLOR_DARKGRAY);
+    yPos += 17;
+    
+    // Display GPS status (truncated)
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_CYAN);
+    drawTruncatedText(margin + 3, yPos + 2, debugInfo.gpsStatus, SCREEN_WIDTH - 2*margin - 6, COLOR_CYAN);
+    yPos += 14;
+    
+    // Location response
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 15, COLOR_DARKGRAY);
+    drawTruncatedText(margin + 3, yPos + 4, "Location Resp:", SCREEN_WIDTH - 2*margin - 6, COLOR_DARKGRAY);
+    yPos += 17;
+    
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_CYAN);
+    drawTruncatedText(margin + 3, yPos + 2, debugInfo.locationResponse, SCREEN_WIDTH - 2*margin - 6, COLOR_CYAN);
+    yPos += 14;
+    
+    // Statistics
+    yPos += 3;
+    char statsText[64];
+    snprintf(statsText, sizeof(statsText), "Attempts: %d  Time: %lus", 
+             debugInfo.fixAttempts, debugInfo.lastUpdateTime / 1000);
+    draw_fillRect(margin, yPos, SCREEN_WIDTH - 2*margin, 12, COLOR_ORANGE);
+    drawTruncatedText(margin + 3, yPos + 2, statsText, SCREEN_WIDTH - 2*margin - 6, COLOR_ORANGE);
+    yPos += 14;
+    
+    // Buttons
+    yPos = NAVBAR_Y - 45;
+    
+    // Refresh button
+    draw_fillRect(10, yPos, 70, 35, COLOR_GREEN);
+    draw_rect(10, yPos, 70, 35, COLOR_DARKGREEN);
+    drawTruncatedText(20, yPos + 13, "REFRESH", 50, COLOR_GREEN);
+    
+    // Back button
+    draw_fillRect(90, yPos, 70, 35, COLOR_BLUE);
+    draw_rect(90, yPos, 70, 35, COLOR_DARKGRAY);
+    drawTruncatedText(105, yPos + 13, "BACK", 50, COLOR_BLUE);
+    
+    // Clear GPS button
+    draw_fillRect(170, yPos, 60, 35, COLOR_RED);
+    draw_rect(170, yPos, 60, 35, COLOR_DARKGRAY);
+    drawTruncatedText(178, yPos + 13, "CLEAR", 44, COLOR_RED);
+    
+    SerialUSB.println(F("=== GPS Debug Screen Complete ===\n"));
+}
+
+void screen_gps_debug_handleTouch(int16_t x, int16_t y)
+{
+    int16_t buttonY = NAVBAR_Y - 45;
+    
+    // Check Refresh button (10, buttonY, 70, 35)
+    if (x >= 10 && x <= 80 && y >= buttonY && y <= buttonY + 35)
+    {
+        SerialUSB.println(F("GPS Debug: REFRESH clicked"));
+        gpsModule.refreshDebugInfo();
+        ui_requestRedraw();
+        return;
+    }
+    
+    // Check Back button (90, buttonY, 70, 35)
+    if (x >= 90 && x <= 160 && y >= buttonY && y <= buttonY + 35)
+    {
+        SerialUSB.println(F("GPS Debug: BACK clicked"));
+        ui_goBack();
+        return;
+    }
+    
+    // Check Clear GPS button (170, buttonY, 60, 35)
+    if (x >= 170 && x <= 230 && y >= buttonY && y <= buttonY + 35)
+    {
+        SerialUSB.println(F("GPS Debug: CLEAR clicked - restarting GPS"));
+        gpsModule.turnOffGPS();
+        delay(1000);
+        gpsModule.turnOnGPS();
+        ui_requestRedraw();
+        return;
+    }
+}
+
+void screen_gps_debug_update(void)
+{
+    // Auto-refresh every 3 seconds
+    static unsigned long lastRefresh = 0;
+    if (millis() - lastRefresh > 3000)
+    {
+        if (ui_getCurrentScreen() == SCREEN_GPS_DEBUG)
+        {
+            ui_requestRedraw();
+        }
+        lastRefresh = millis();
+    }
 }

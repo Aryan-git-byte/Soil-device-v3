@@ -48,4 +48,21 @@ void screen_settings_draw(void);
  */
 void screen_input_draw(void);
 
+/**
+ * @brief Draw the GPS Debug screen
+ */
+void screen_gps_debug_draw(void);
+
+/**
+ * @brief Handle touch events on GPS Debug screen
+ * @param x X coordinate
+ * @param y Y coordinate
+ */
+void screen_gps_debug_handleTouch(int16_t x, int16_t y);
+
+/**
+ * @brief Update GPS debug display with new data
+ */
+void screen_gps_debug_update(void);
+
 #endif // SCREENS_H

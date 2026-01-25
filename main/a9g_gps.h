@@ -25,10 +25,21 @@ typedef struct {
     char lastUpdate[20]; // Time string
 } GPSData;
 
+// GPS Debug Info Structure
+typedef struct {
+    char lastCommand[32];
+    char lastResponse[256];
+    char gpsStatus[64];
+    char locationResponse[128];
+    unsigned long lastUpdateTime;
+    int fixAttempts;
+} GPSDebugInfo;
+
 class A9G_GPS {
 private:
     bool moduleOn;
     GPSData gpsData;
+    GPSDebugInfo debugInfo;
     unsigned long lastGPSRead;
     unsigned long gpsReadInterval;
     
@@ -42,10 +53,12 @@ public:
     bool begin();
     void update();
     GPSData getGPSData();
+    GPSDebugInfo getDebugInfo();
     bool isGPSValid();
     void turnOnGPS();
     void turnOffGPS();
     String getLocationString();
+    void refreshDebugInfo();
 };
 
 #endif // A9G_GPS_H

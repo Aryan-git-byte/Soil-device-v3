@@ -234,6 +234,13 @@ void ui_handleTouch(int16_t x, int16_t y);
  */
 void ui_handleNavbar(int16_t x, int16_t y);
 
+/**
+ * @brief Handle header touch (for GPS debug)
+ * @param x X coordinate
+ * @param y Y coordinate
+ */
+void ui_handleHeader(int16_t x, int16_t y);
+
 // ===================================
 // Main Update Loop
 // ===================================

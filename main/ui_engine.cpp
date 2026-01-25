@@ -278,13 +278,18 @@ void ui_setScreen(ScreenID screen)
     uiState.lastScreen = uiState.currentScreen;
     uiState.currentScreen = screen;
 
-    // Only redraw the two navbar buttons that changed (old and new)
-    ui_drawNavbarButton(oldScreen); // Unhighlight old
-    ui_drawNavbarButton(screen);    // Highlight new
+    // Only redraw navbar if not going to GPS debug screen
+    if (screen != SCREEN_GPS_DEBUG && oldScreen != SCREEN_GPS_DEBUG) {
+        ui_drawNavbarButton(oldScreen); // Unhighlight old
+        ui_drawNavbarButton(screen);    // Highlight new
+        uiState.needsNavbarRedraw = false;
+    } else {
+        // For GPS debug, we'll do full redraw
+        uiState.needsNavbarRedraw = true;
+    }
 
-    // Trigger content area redraw, but NOT navbar redraw (we just did that manually)
+    // Trigger content area redraw
     uiState.needsFullRedraw = true;
-    uiState.needsNavbarRedraw = false; // Navbar already updated above
 
     // Clear screen-specific data
     ui_clearValues();
@@ -323,7 +328,7 @@ void ui_drawHeader(const char *title)
     // Battery (left side)
     draw_battery(5, 10, uiState.batteryLevel);
 
-    // GPS indicator
+    // GPS indicator (clickable area)
     draw_gpsIndicator(35, 10, uiState.gpsLock);
 
     // GSM signal (right side)
@@ -403,6 +408,9 @@ void ui_drawScreen(void)
     case SCREEN_INPUT:
         screen_input_draw();
         break;
+    case SCREEN_GPS_DEBUG:
+        screen_gps_debug_draw();
+        break;
     default:
         break;
     }
@@ -448,6 +456,16 @@ void ui_setGPS(bool locked)
     }
 }
 
+void ui_setGPSCoordinates(float lat, float lon, bool valid)
+{
+    uiState.gpsLatitude = lat;
+    uiState.gpsLongitude = lon;
+    uiState.gpsValid = valid;
+    
+    // Update GPS lock status based on validity
+    ui_setGPS(valid);
+}
+
 // ===================================
 // Touch Handling
 // ===================================
@@ -457,9 +475,19 @@ void ui_handleNavbar(int16_t x, int16_t y)
     int navWidth = SCREEN_WIDTH / 5;
     int navIndex = x / navWidth;
 
-    if (navIndex >= 0 && navIndex < SCREEN_COUNT)
+    if (navIndex >= 0 && navIndex < 5)
     {
         ui_setScreen((ScreenID)navIndex);
+    }
+}
+
+void ui_handleHeader(int16_t x, int16_t y)
+{
+    // GPS indicator clickable area: x=30-50, y=0-30
+    if (x >= 30 && x <= 50 && y >= 0 && y <= HEADER_HEIGHT)
+    {
+        SerialUSB.println(F("GPS indicator clicked! Opening GPS debug screen..."));
+        ui_setScreen(SCREEN_GPS_DEBUG);
     }
 }
 
@@ -474,7 +502,14 @@ void ui_handleTouch(int16_t x, int16_t y)
     uiState.lastTouchX = x;
     uiState.lastTouchY = y;
 
-    // Check navbar first
+    // Check header first (for GPS debug)
+    if (y < HEADER_HEIGHT)
+    {
+        ui_handleHeader(x, y);
+        return;
+    }
+
+    // Check navbar
     if (y >= NAVBAR_Y)
     {
         ui_handleNavbar(x, y);
@@ -485,6 +520,12 @@ void ui_handleTouch(int16_t x, int16_t y)
     if (uiState.currentScreen == SCREEN_FILES)
     {
         screen_files_handleTouch(x, y);
+        return;
+    }
+    
+    if (uiState.currentScreen == SCREEN_GPS_DEBUG)
+    {
+        screen_gps_debug_handleTouch(x, y);
         return;
     }
 
