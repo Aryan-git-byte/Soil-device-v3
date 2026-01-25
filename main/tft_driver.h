@@ -16,7 +16,7 @@
 // ===================================
 
 /**
- * @brief Initialize TFT GPIO pins and hardware SPI
+ * @brief Initialize TFT GPIO pins
  */
 void tft_initPins(void);
 
@@ -26,7 +26,7 @@ void tft_initPins(void);
 void tft_init(void);
 
 /**
- * @brief Write a single byte via hardware SPI
+ * @brief Write a single byte via software SPI
  * @param data Byte to write
  */
 void tft_spiWrite(uint8_t data);

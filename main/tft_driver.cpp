@@ -4,46 +4,44 @@
  */
 
 #include "tft_driver.h"
-#include <SPI.h>
 
 // ===================================
-// TFT Low Level SPI (Hardware SPI)
+// TFT Low Level SPI
 // ===================================
 
 void tft_spiWrite(uint8_t data)
 {
-    SPI.transfer(data);
+    for (int8_t i = 7; i >= 0; i--)
+    {
+        digitalWrite(TFT_SCK, LOW);
+        digitalWrite(TFT_MOSI, (data >> i) & 0x01);
+        digitalWrite(TFT_SCK, HIGH);
+    }
 }
 
 void tft_writeCommand(uint8_t cmd)
 {
-    SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
     digitalWrite(TFT_DC, LOW);
     digitalWrite(TFT_CS, LOW);
-    SPI.transfer(cmd);
+    tft_spiWrite(cmd);
     digitalWrite(TFT_CS, HIGH);
-    SPI.endTransaction();
 }
 
 void tft_writeData(uint8_t data)
 {
-    SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
     digitalWrite(TFT_DC, HIGH);
     digitalWrite(TFT_CS, LOW);
-    SPI.transfer(data);
+    tft_spiWrite(data);
     digitalWrite(TFT_CS, HIGH);
-    SPI.endTransaction();
 }
 
 void tft_writeData16(uint16_t data)
 {
-    SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
     digitalWrite(TFT_DC, HIGH);
     digitalWrite(TFT_CS, LOW);
-    SPI.transfer(data >> 8);
-    SPI.transfer(data & 0xFF);
+    tft_spiWrite(data >> 8);
+    tft_spiWrite(data & 0xFF);
     digitalWrite(TFT_CS, HIGH);
-    SPI.endTransaction();
 }
 
 // ===================================
@@ -63,7 +61,6 @@ void tft_setWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 
 void tft_beginWrite(void)
 {
-    SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
     digitalWrite(TFT_DC, HIGH);
     digitalWrite(TFT_CS, LOW);
 }
@@ -71,13 +68,12 @@ void tft_beginWrite(void)
 void tft_endWrite(void)
 {
     digitalWrite(TFT_CS, HIGH);
-    SPI.endTransaction();
 }
 
 void tft_writeColor(uint16_t color)
 {
-    SPI.transfer(color >> 8);
-    SPI.transfer(color & 0xFF);
+    tft_spiWrite(color >> 8);
+    tft_spiWrite(color & 0xFF);
 }
 
 // ===================================
@@ -86,20 +82,17 @@ void tft_writeColor(uint16_t color)
 
 void tft_initPins(void)
 {
-    // Initialize control pins first
     pinMode(TFT_CS, OUTPUT);
     pinMode(TFT_RST, OUTPUT);
     pinMode(TFT_DC, OUTPUT);
+    pinMode(TFT_MOSI, OUTPUT);
+    pinMode(TFT_SCK, OUTPUT);
+    pinMode(TFT_MISO, INPUT);
+    pinMode(TFT_LED, OUTPUT);
 
     digitalWrite(TFT_CS, HIGH);
-    digitalWrite(TFT_DC, HIGH);
-
-    // Initialize hardware SPI
-    SPI.begin();
-    // Arduino Zero runs at 48MHz, use a safe divider
-    // Try starting with slower speed for stability
-    SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0)); // 8MHz
-    SPI.endTransaction();
+    digitalWrite(TFT_SCK, LOW);
+    digitalWrite(TFT_LED, HIGH);
 }
 
 void tft_init(void)

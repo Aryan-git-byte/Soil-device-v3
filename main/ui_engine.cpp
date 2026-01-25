@@ -68,10 +68,6 @@ void ui_init(void)
     uiState.lastTouchY = -1;
     uiState.lastTouchTime = 0;
 
-    // Initialize file browser state
-    uiState.fileScrollOffset = 0;
-    uiState.totalFiles = 0;
-
     buttonCount = 0;
     valueCount = 0;
 }
@@ -286,12 +282,6 @@ void ui_setScreen(ScreenID screen)
     uiState.needsFullRedraw = true;
     uiState.needsNavbarRedraw = false; // Navbar already updated above
 
-    // Reset file scroll when entering files screen
-    if (screen == SCREEN_FILES)
-    {
-        uiState.fileScrollOffset = 0;
-    }
-
     // Clear screen-specific data
     ui_clearValues();
     ui_clearButtons();
@@ -477,14 +467,6 @@ void ui_handleTouch(int16_t x, int16_t y)
         return;
     }
     uiState.lastTouchTime = millis();
-
-    // Calculate touch delta for drag gestures
-    int16_t deltaY = 0;
-    if (uiState.lastTouchX >= 0 && uiState.lastTouchY >= 0)
-    {
-        deltaY = y - uiState.lastTouchY;
-    }
-
     uiState.lastTouchX = x;
     uiState.lastTouchY = y;
 
@@ -493,31 +475,6 @@ void ui_handleTouch(int16_t x, int16_t y)
     {
         ui_handleNavbar(x, y);
         return;
-    }
-
-    // Handle file screen scrolling
-    if (uiState.currentScreen == SCREEN_FILES && y >= CONTENT_Y && y < NAVBAR_Y)
-    {
-        // Drag to scroll (reverse direction for natural feel)
-        if (abs(deltaY) > 5)
-        { // Minimum drag threshold
-            const int16_t visibleItems = (CONTENT_HEIGHT - 10) / FILE_ITEM_HEIGHT;
-            const int16_t maxScroll = max(0, uiState.totalFiles - visibleItems);
-
-            // Scroll opposite to drag direction (natural scrolling)
-            if (deltaY > 0 && uiState.fileScrollOffset > 0)
-            {
-                uiState.fileScrollOffset--;
-                uiState.needsFullRedraw = true;
-                return;
-            }
-            else if (deltaY < 0 && uiState.fileScrollOffset < maxScroll)
-            {
-                uiState.fileScrollOffset++;
-                uiState.needsFullRedraw = true;
-                return;
-            }
-        }
     }
 
     // Check buttons

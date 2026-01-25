@@ -11,29 +11,24 @@
 #include <Arduino.h>
 
 // ===================================
-// SPI Pin Definitions (Shared)
-// ===================================
-#define SPI_MOSI 13 // Shared: TFT SDI/MOSI and Touch T_DIN
-#define SPI_MISO 12 // Shared: TFT SDO/MISO and Touch T_DO
-#define SPI_SCK 11  // Shared: TFT SCK and Touch T_CLK
-
-// ===================================
 // TFT Pin Definitions
 // ===================================
-#define TFT_CS 10
+#define TFT_CS 12
 #define TFT_RST 8
 #define TFT_DC 7
+#define TFT_MOSI A3
+#define TFT_SCK A5
+#define TFT_MISO A4
+#define TFT_LED 4
 
 // ===================================
 // Touch Pin Definitions
 // ===================================
+#define T_IRQ A1
+#define T_DO A4
+#define T_DIN A3
 #define T_CS A2
-#define T_IRQ A1 // Optional interrupt pin
-
-// ===================================
-// SD Card Pin Definition
-// ===================================
-#define SD_CS 4
+#define T_CLK A5
 
 // ===================================
 // Screen Dimensions
@@ -111,12 +106,5 @@
 #define TOUCH_DEBOUNCE_MS 200
 #define ALERT_TIMEOUT_MS 3000
 #define SENSOR_UPDATE_MS 2000
-
-// ===================================
-// File Browser Settings
-// ===================================
-#define MAX_FILES_DISPLAY 20
-#define FILE_ITEM_HEIGHT 35
-#define SCROLLBAR_WIDTH 8
 
 #endif // CONFIG_H

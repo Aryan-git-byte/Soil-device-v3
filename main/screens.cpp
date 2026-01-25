@@ -6,7 +6,6 @@
 #include "screens.h"
 #include "ui_engine.h"
 #include "drawing.h"
-#include <SD.h>
 
 // ===================================
 // Home Screen - Sensor Dashboard
@@ -42,7 +41,7 @@ void screen_home_draw(void)
 }
 
 // ===================================
-// Files Screen - SD Card Browser
+// Files Screen
 // ===================================
 
 void screen_files_draw(void)
@@ -50,115 +49,18 @@ void screen_files_draw(void)
     // Clear content area
     draw_fillRect(0, CONTENT_Y, SCREEN_WIDTH, CONTENT_HEIGHT, COLOR_WHITE);
 
-    UIState *state = ui_getState();
+    const int16_t itemHeight = 40;
+    const int16_t margin = 10;
+    const int16_t itemWidth = SCREEN_WIDTH - (margin * 2);
 
-    // Check if SD card is available
-    if (!SD.begin(SD_CS))
+    // File list items (placeholders)
+    for (int i = 0; i < 3; i++)
     {
-        // Display error message
-        draw_fillRect(20, CONTENT_Y + 100, SCREEN_WIDTH - 40, 40, COLOR_RED);
-        // Text would go here: "SD Card Error"
-        return;
-    }
+        int16_t y = CONTENT_Y + margin + (i * (itemHeight + 10));
+        draw_fillRect(margin, y, itemWidth, itemHeight, COLOR_LIGHTGRAY);
 
-    // Open root directory
-    File root = SD.open("/");
-    if (!root)
-    {
-        return;
-    }
-
-    // Count total files first
-    state->totalFiles = 0;
-    root.rewindDirectory();
-    while (File entry = root.openNextFile())
-    {
-        if (!entry.isDirectory())
-        {
-            state->totalFiles++;
-        }
-        entry.close();
-    }
-
-    // Calculate visible items
-    const int16_t visibleItems = (CONTENT_HEIGHT - 10) / FILE_ITEM_HEIGHT;
-    const int16_t margin = 5;
-    const int16_t itemWidth = SCREEN_WIDTH - (margin * 2) - SCROLLBAR_WIDTH - 5;
-
-    // Reset directory to beginning
-    root.rewindDirectory();
-
-    // Skip files according to scroll offset
-    int16_t currentIndex = 0;
-    int16_t displayIndex = 0;
-
-    while (File entry = root.openNextFile())
-    {
-        if (entry.isDirectory())
-        {
-            entry.close();
-            continue;
-        }
-
-        // Skip files before scroll offset
-        if (currentIndex < state->fileScrollOffset)
-        {
-            currentIndex++;
-            entry.close();
-            continue;
-        }
-
-        // Stop if we've displayed enough items
-        if (displayIndex >= visibleItems)
-        {
-            entry.close();
-            break;
-        }
-
-        // Calculate position
-        int16_t y = CONTENT_Y + margin + (displayIndex * FILE_ITEM_HEIGHT);
-
-        // Draw file item background
-        draw_fillRect(margin, y, itemWidth, FILE_ITEM_HEIGHT - 2, COLOR_LIGHTGRAY);
-        draw_rect(margin, y, itemWidth, FILE_ITEM_HEIGHT - 2, COLOR_DARKGRAY);
-
-        // Draw file icon (simple square)
-        draw_fillRect(margin + 5, y + 5, 25, 25, COLOR_BLUE);
-        draw_rect(margin + 5, y + 5, 25, 25, COLOR_DARKGRAY);
-
-        // File name would be drawn here (requires text rendering)
-        // For now, just show the icon and box
-
-        // Get file size for display
-        uint32_t fileSize = entry.size();
-
-        entry.close();
-        displayIndex++;
-        currentIndex++;
-    }
-
-    root.close();
-
-    // Draw scrollbar on the right side
-    if (state->totalFiles > visibleItems)
-    {
-        int16_t scrollbarX = SCREEN_WIDTH - SCROLLBAR_WIDTH - 2;
-        int16_t scrollbarY = CONTENT_Y + margin;
-        int16_t scrollbarHeight = CONTENT_HEIGHT - (margin * 2);
-
-        // Scrollbar background
-        draw_fillRect(scrollbarX, scrollbarY, SCROLLBAR_WIDTH, scrollbarHeight, COLOR_LIGHTGRAY);
-        draw_rect(scrollbarX, scrollbarY, SCROLLBAR_WIDTH, scrollbarHeight, COLOR_DARKGRAY);
-
-        // Calculate scrollbar thumb size and position
-        float scrollRatio = (float)visibleItems / (float)state->totalFiles;
-        int16_t thumbHeight = max(20, (int16_t)(scrollbarHeight * scrollRatio));
-
-        float scrollPosition = (float)state->fileScrollOffset / (float)(state->totalFiles - visibleItems);
-        int16_t thumbY = scrollbarY + (int16_t)((scrollbarHeight - thumbHeight) * scrollPosition);
-
-        // Draw scrollbar thumb
-        draw_fillRect(scrollbarX + 1, thumbY, SCROLLBAR_WIDTH - 2, thumbHeight, COLOR_BLUE);
+        // File icon placeholder
+        draw_fillRect(margin + 5, y + 5, 30, 30, COLOR_BLUE);
     }
 }
 

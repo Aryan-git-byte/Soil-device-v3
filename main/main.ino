@@ -21,8 +21,6 @@
 #include "drawing.h"
 #include "ui_engine.h"
 #include "screens.h"
-#include <SPI.h>
-#include <SD.h>
 
 // ===================================
 // Application Configuration
@@ -66,34 +64,8 @@ void setup()
     // Initialize TFT display pins and controller
     SerialUSB.println(F("Initializing TFT display..."));
     tft_initPins();
-    SerialUSB.println(F("TFT pins initialized"));
-
     tft_init();
     SerialUSB.println(F("TFT display ready!"));
-
-    // Test: Fill screen with red to verify TFT is working
-    SerialUSB.println(F("Testing TFT - filling red..."));
-    tft_setWindow(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1);
-    tft_beginWrite();
-    for (uint32_t i = 0; i < (uint32_t)SCREEN_WIDTH * SCREEN_HEIGHT; i++)
-    {
-        tft_writeColor(COLOR_RED);
-    }
-    tft_endWrite();
-    SerialUSB.println(F("TFT test complete!"));
-    delay(1000); // Show red screen for 1 second
-
-    // Initialize SD card
-    SerialUSB.println(F("Initializing SD card..."));
-    if (!SD.begin(SD_CS))
-    {
-        SerialUSB.println(F("SD card initialization failed!"));
-        // Continue anyway - UI will show error in files screen
-    }
-    else
-    {
-        SerialUSB.println(F("SD card ready!"));
-    }
 
     // Initialize touch controller pins
     SerialUSB.println(F("Initializing touch controller..."));
