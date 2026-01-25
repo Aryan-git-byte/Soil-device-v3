@@ -104,6 +104,9 @@ typedef struct
     uint8_t gsmSignal;
     uint8_t batteryLevel;
     bool gpsLock;
+    float gpsLatitude;
+    float gpsLongitude;
+    bool gpsValid;
 } UIState;
 
 // ===================================

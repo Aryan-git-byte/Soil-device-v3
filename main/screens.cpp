@@ -21,6 +21,7 @@ static bool firstFileDraw = true;
 // Forward declarations for text rendering
 void drawSimpleChar(int16_t x, int16_t y, char c, uint16_t fgColor, uint16_t bgColor);
 void drawTruncatedText(int16_t x, int16_t y, const char* text, int16_t maxWidth, uint16_t bgColor);
+void drawGPSText(const char* text, int16_t x, int16_t y);
 
 // ===================================
 // Text Rendering Functions
@@ -127,6 +128,18 @@ void drawTruncatedText(int16_t x, int16_t y, const char* text, int16_t maxWidth,
         if (remainingWidth > 0) {
             draw_fillRect(x_cursor, y, remainingWidth, FONT_HEIGHT, bgColor);
         }
+    }
+}
+
+// Helper function to draw GPS text in header (white on blue)
+void drawGPSText(const char* text, int16_t x, int16_t y) {
+    const int charWidth = FONT_WIDTH + 1;
+    int len = strlen(text);
+    
+    int x_cursor = x;
+    for (int i = 0; i < len; i++) {
+        drawSimpleChar(x_cursor, y, text[i], COLOR_WHITE, COLOR_BLUE);
+        x_cursor += charWidth;
     }
 }
 

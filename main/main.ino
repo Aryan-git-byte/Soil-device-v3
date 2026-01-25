@@ -22,6 +22,7 @@
 #include "ui_engine.h"
 #include "screens.h"
 #include "file_browser.h"
+#include "a9g_gps.h"
 
 // ===================================
 // Application Configuration
@@ -31,14 +32,16 @@
 #define APP_SENSOR_UPDATE_INTERVAL 2000
 
 // SD Card CS Pin - CHANGE THIS TO YOUR ACTUAL SD CARD CS PIN
-#define SD_CS_PIN 4  // Common default, adjust if different
+#define SD_CS_PIN 10  // Common default, adjust if different
 
 // ===================================
 // Application State
 // ===================================
 FileBrowser sdBrowser;
+A9G_GPS gpsModule;
 
 static uint32_t lastSensorUpdate = 0;
+static uint32_t lastGPSUpdate = 0;
 
 // ===================================
 // Sensor Simulation
@@ -144,10 +147,18 @@ void setup()
     // Set initial status values
     ui_setBattery(75);
     ui_setGSM(80);
-    ui_setGPS(true);
+    ui_setGPS(false); // Will be updated by GPS module
 
     // Initialize SD Card with debugging
     initSDCard();
+    
+    // Initialize A9G GPS Module
+    SerialUSB.println(F("Initializing A9G GPS..."));
+    if (gpsModule.begin()) {
+        SerialUSB.println(F("GPS module initialized!"));
+    } else {
+        SerialUSB.println(F("GPS module failed to initialize"));
+    }
 
     SerialUSB.println(F("=== System Ready ===\n"));
 }
@@ -166,6 +177,17 @@ void loop()
     {
         lastSensorUpdate = millis();
         updateSensorValues();
+    }
+    
+    // Update GPS data
+    gpsModule.update();
+    
+    // Update GPS display every 3 seconds
+    if (millis() - lastGPSUpdate > 3000) {
+        lastGPSUpdate = millis();
+        GPSData gpsData = gpsModule.getGPSData();
+        ui_setGPS(gpsData.valid);
+        ui_setGPSCoordinates(gpsData.latitude, gpsData.longitude, gpsData.valid);
     }
 
     // Small delay to prevent CPU hogging

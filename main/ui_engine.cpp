@@ -27,7 +27,10 @@ static UIState uiState = {
     0,             // lastTouchTime
     0,             // gsmSignal
     0,             // batteryLevel
-    false          // gpsLock
+    false,         // gpsLock
+    0.0,           // gpsLatitude
+    0.0,           // gpsLongitude
+    false          // gpsValid
 };
 
 // Button storage

@@ -208,6 +208,14 @@ void ui_setBattery(uint8_t level);
  */
 void ui_setGPS(bool locked);
 
+/**
+ * @brief Update GPS coordinates display
+ * @param lat Latitude
+ * @param lon Longitude
+ * @param valid GPS data valid
+ */
+void ui_setGPSCoordinates(float lat, float lon, bool valid);
+
 // ===================================
 // Touch Handling
 // ===================================
