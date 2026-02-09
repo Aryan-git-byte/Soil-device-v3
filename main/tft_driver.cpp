@@ -1,47 +1,100 @@
 /**
  * @file tft_driver.cpp
- * @brief TFT Display Driver Implementation for ILI9341
+ * @brief Bare Metal TFT Driver Implementation for ILI9341 on SAMD21
+ *
+ * Uses SERCOM1 hardware SPI with direct port register manipulation.
+ * No external libraries. ~12 MHz SPI clock.
  */
 
 #include "tft_driver.h"
 
 // ===================================
-// TFT Low Level SPI
+// Bare Metal SPI (SERCOM1)
 // ===================================
 
-void tft_spiWrite(uint8_t data)
+void spi_init(void)
 {
-    for (int8_t i = 7; i >= 0; i--)
-    {
-        digitalWrite(TFT_SCK, LOW);
-        digitalWrite(TFT_MOSI, (data >> i) & 0x01);
-        digitalWrite(TFT_SCK, HIGH);
-    }
+    // 1. Enable power to SERCOM1
+    PM->APBCMASK.reg |= PM_APBCMASK_SERCOM1;
+
+    // 2. Configure GCLK0 (48 MHz) to feed SERCOM1
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM1_GCLK_ID_CORE) |
+                        GCLK_CLKCTRL_GEN_GCLK0 |
+                        GCLK_CLKCTRL_CLKEN;
+    while (GCLK->STATUS.bit.SYNCBUSY)
+        ;
+
+    // 3. Configure pins for SERCOM1 (Peripheral Function C)
+    // PA16 (MOSI) -> Pad 0
+    // PA17 (SCK)  -> Pad 1
+    // PA19 (MISO) -> Pad 3
+    PORT->Group[0].PINCFG[16].bit.PMUXEN = 1;
+    PORT->Group[0].PINCFG[17].bit.PMUXEN = 1;
+    PORT->Group[0].PINCFG[19].bit.PMUXEN = 1;
+
+    // PMUX register: even pins use lower nibble, odd pins use upper nibble
+    // PA16 (even) & PA17 (odd) share PMUX[8]
+    PORT->Group[0].PMUX[8].reg = PORT_PMUX_PMUXO_C | PORT_PMUX_PMUXE_C;
+    // PA19 (odd) in PMUX[9]
+    PORT->Group[0].PMUX[9].reg |= PORT_PMUX_PMUXO_C;
+
+    // 4. Configure SERCOM1 as SPI Master
+    SERCOM1->SPI.CTRLA.bit.ENABLE = 0;
+    while (SERCOM1->SPI.SYNCBUSY.bit.ENABLE)
+        ;
+
+    SERCOM1->SPI.CTRLA.reg = SERCOM_SPI_CTRLA_MODE_SPI_MASTER |
+                             SERCOM_SPI_CTRLA_DIPO(3) | // MISO on Pad 3
+                             SERCOM_SPI_CTRLA_DOPO(0);  // MOSI Pad 0, SCK Pad 1
+
+    SERCOM1->SPI.CTRLB.reg = SERCOM_SPI_CTRLB_RXEN; // Enable receiver
+
+    // 5. Set baud rate: 12 MHz SPI clock -> (48 / (2*12)) - 1 = 1
+    SERCOM1->SPI.BAUD.reg = 1;
+
+    // 6. Enable SPI
+    SERCOM1->SPI.CTRLA.bit.ENABLE = 1;
+    while (SERCOM1->SPI.SYNCBUSY.bit.ENABLE)
+        ;
 }
+
+uint8_t spi_transfer(uint8_t data)
+{
+    while (SERCOM1->SPI.INTFLAG.bit.DRE == 0)
+        ; // Wait for Data Register Empty
+    SERCOM1->SPI.DATA.reg = data;
+    while (SERCOM1->SPI.INTFLAG.bit.RXC == 0)
+        ; // Wait for Receive Complete
+    return (uint8_t)SERCOM1->SPI.DATA.reg;
+}
+
+// ===================================
+// TFT Low-Level Commands
+// ===================================
 
 void tft_writeCommand(uint8_t cmd)
 {
-    digitalWrite(TFT_DC, LOW);
-    digitalWrite(TFT_CS, LOW);
-    tft_spiWrite(cmd);
-    digitalWrite(TFT_CS, HIGH);
+    CLR_PIN(TFT_DC_PORT, TFT_DC_PIN); // DC Low  = Command
+    CLR_PIN(TFT_CS_PORT, TFT_CS_PIN); // CS Low
+    spi_transfer(cmd);
+    SET_PIN(TFT_CS_PORT, TFT_CS_PIN); // CS High
 }
 
 void tft_writeData(uint8_t data)
 {
-    digitalWrite(TFT_DC, HIGH);
-    digitalWrite(TFT_CS, LOW);
-    tft_spiWrite(data);
-    digitalWrite(TFT_CS, HIGH);
+    SET_PIN(TFT_DC_PORT, TFT_DC_PIN); // DC High = Data
+    CLR_PIN(TFT_CS_PORT, TFT_CS_PIN);
+    spi_transfer(data);
+    SET_PIN(TFT_CS_PORT, TFT_CS_PIN);
 }
 
 void tft_writeData16(uint16_t data)
 {
-    digitalWrite(TFT_DC, HIGH);
-    digitalWrite(TFT_CS, LOW);
-    tft_spiWrite(data >> 8);
-    tft_spiWrite(data & 0xFF);
-    digitalWrite(TFT_CS, HIGH);
+    SET_PIN(TFT_DC_PORT, TFT_DC_PIN);
+    CLR_PIN(TFT_CS_PORT, TFT_CS_PIN);
+    spi_transfer(data >> 8);
+    spi_transfer(data & 0xFF);
+    SET_PIN(TFT_CS_PORT, TFT_CS_PIN);
 }
 
 // ===================================
@@ -61,55 +114,48 @@ void tft_setWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 
 void tft_beginWrite(void)
 {
-    digitalWrite(TFT_DC, HIGH);
-    digitalWrite(TFT_CS, LOW);
+    SET_PIN(TFT_DC_PORT, TFT_DC_PIN); // DC High = Data
+    CLR_PIN(TFT_CS_PORT, TFT_CS_PIN); // CS Low
 }
 
 void tft_endWrite(void)
 {
-    digitalWrite(TFT_CS, HIGH);
+    SET_PIN(TFT_CS_PORT, TFT_CS_PIN); // CS High
 }
 
 void tft_writeColor(uint16_t color)
 {
-    tft_spiWrite(color >> 8);
-    tft_spiWrite(color & 0xFF);
+    spi_transfer(color >> 8);
+    spi_transfer(color & 0xFF);
 }
 
 // ===================================
 // Initialization
 // ===================================
 
-void tft_initPins(void)
-{
-    pinMode(TFT_CS, OUTPUT);
-    pinMode(TFT_RST, OUTPUT);
-    pinMode(TFT_DC, OUTPUT);
-    pinMode(TFT_MOSI, OUTPUT);
-    pinMode(TFT_SCK, OUTPUT);
-    pinMode(TFT_MISO, INPUT);
-    pinMode(TFT_LED, OUTPUT);
-
-    digitalWrite(TFT_CS, HIGH);
-    digitalWrite(TFT_SCK, LOW);
-    digitalWrite(TFT_LED, HIGH);
-}
-
 void tft_init(void)
 {
+    // Configure control pins as outputs (bare metal)
+    PIN_OUTPUT(TFT_CS_PORT, TFT_CS_PIN);
+    PIN_OUTPUT(TFT_DC_PORT, TFT_DC_PIN);
+    PIN_OUTPUT(TFT_RST_PORT, TFT_RST_PIN);
+    PIN_OUTPUT(TOUCH_CS_PORT, TOUCH_CS_PIN);
+
+    // Set defaults: all CS high, RST high
+    SET_PIN(TFT_CS_PORT, TFT_CS_PIN);
+    SET_PIN(TOUCH_CS_PORT, TOUCH_CS_PIN);
+    SET_PIN(TFT_RST_PORT, TFT_RST_PIN);
+
     // Hardware reset
-    digitalWrite(TFT_RST, HIGH);
     delay(10);
-    digitalWrite(TFT_RST, LOW);
-    delay(20);
-    digitalWrite(TFT_RST, HIGH);
+    CLR_PIN(TFT_RST_PORT, TFT_RST_PIN);
+    delay(10);
+    SET_PIN(TFT_RST_PORT, TFT_RST_PIN);
     delay(150);
 
     // Software reset
     tft_writeCommand(ILI9341_SWRESET);
     delay(150);
-    tft_writeCommand(ILI9341_SLPOUT);
-    delay(120);
 
     // Power control sequences
     tft_writeCommand(0xCB);
@@ -157,24 +203,19 @@ void tft_init(void)
     tft_writeCommand(ILI9341_VMCTR2);
     tft_writeData(0x86);
 
-    // Memory access control (rotation) - PORTRAIT MODE
-    // For 240x320 portrait display, normal orientation
-    // Bit 7: MY (Row Address Order) = 0
-    // Bit 6: MX (Column Address Order) = 0
-    // Bit 5: MV (Row/Column Exchange) = 1 (swap X/Y for portrait)
-    // Bit 4: ML (Vertical Refresh Order) = 1
-    // Bit 3: BGR (RGB-BGR Order) = 1
+    // Memory access control - Landscape 320x240
+    // 0x28 = MV=1, BGR=1 -> landscape, normal orientation
     tft_writeCommand(ILI9341_MADCTL);
-    tft_writeData(0x28); // Portrait mode, normal (not mirrored)
+    tft_writeData(0x28);
 
-    // Pixel format
+    // Pixel format: 16-bit (RGB565)
     tft_writeCommand(ILI9341_PIXFMT);
     tft_writeData(0x55);
 
     // Frame rate control
     tft_writeCommand(ILI9341_FRMCTR1);
     tft_writeData(0x00);
-    tft_writeData(0x10);
+    tft_writeData(0x18);
 
     // Display function control
     tft_writeCommand(0xB6);
@@ -226,7 +267,9 @@ void tft_init(void)
     tft_writeData(0x36);
     tft_writeData(0x0F);
 
-    // Display on
+    // Sleep out and display on
+    tft_writeCommand(ILI9341_SLPOUT);
+    delay(120);
     tft_writeCommand(ILI9341_DISPON);
     delay(100);
 }

@@ -2,7 +2,12 @@
  * @file config.h
  * @brief Configuration constants for the UI Engine
  *
- * Pin definitions, screen dimensions, colors, and calibration constants
+ * Bare-metal SAMD21 pin definitions, screen dimensions, colors, and calibration constants
+ *
+ * SERCOM1 SPI CONFIGURATION:
+ *   MOSI -> PA16 (Pad 0) -> Arduino Pin 11
+ *   SCK  -> PA17 (Pad 1) -> Arduino Pin 13
+ *   MISO -> PA19 (Pad 3) -> Arduino Pin 12
  */
 
 #ifndef CONFIG_H
@@ -11,24 +16,39 @@
 #include <Arduino.h>
 
 // ===================================
-// TFT Pin Definitions
+// Direct Port Manipulation
 // ===================================
-#define TFT_CS 12
-#define TFT_RST 8
-#define TFT_DC 7
-#define TFT_MOSI A3
-#define TFT_SCK A5
-#define TFT_MISO A4
-#define TFT_LED 4
+#define PORT_A 0
+#define PORT_B 1
+
+// Macros to set pins High/Low instantly
+#define SET_PIN(grp, pin) (PORT->Group[grp].OUTSET.reg = (1ul << (pin)))
+#define CLR_PIN(grp, pin) (PORT->Group[grp].OUTCLR.reg = (1ul << (pin)))
+#define READ_PIN(grp, pin) ((PORT->Group[grp].IN.reg >> (pin)) & 1)
+#define PIN_OUTPUT(grp, pin) (PORT->Group[grp].DIRSET.reg = (1ul << (pin)))
+#define PIN_INPUT(grp, pin) (PORT->Group[grp].DIRCLR.reg = (1ul << (pin)))
 
 // ===================================
-// Touch Pin Definitions
+// TFT Pin Definitions (Bare Metal)
 // ===================================
-#define T_IRQ A1
-#define T_DO A4
-#define T_DIN A3
-#define T_CS A2
-#define T_CLK A5
+// TFT_CS: A2 (PB09)
+#define TFT_CS_PORT PORT_B
+#define TFT_CS_PIN 9
+
+// TFT_DC: D7 (PA21)
+#define TFT_DC_PORT PORT_A
+#define TFT_DC_PIN 21
+
+// TFT_RST: D8 (PA06)
+#define TFT_RST_PORT PORT_A
+#define TFT_RST_PIN 6
+
+// ===================================
+// Touch Pin Definitions (Bare Metal)
+// ===================================
+// TOUCH_CS: A1 (PB08)
+#define TOUCH_CS_PORT PORT_B
+#define TOUCH_CS_PIN 8
 
 // ===================================
 // Screen Dimensions

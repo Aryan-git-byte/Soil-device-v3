@@ -1,8 +1,9 @@
 /**
  * @file touch_driver.h
- * @brief Touch Screen Driver for XPT2046
+ * @brief Bare Metal Touch Screen Driver for XPT2046 on SAMD21
  *
- * Low-level SPI communication and touch coordinate handling
+ * Shares SERCOM1 hardware SPI bus with ILI9341 TFT driver.
+ * Uses direct port register manipulation for CS pin control.
  */
 
 #ifndef TOUCH_DRIVER_H
@@ -17,26 +18,14 @@
 // ===================================
 
 /**
- * @brief Initialize touch controller GPIO pins
- */
-void touch_initPins(void);
-
-/**
- * @brief Transfer a byte via software SPI
- * @param data Byte to send
- * @return Received byte
- */
-uint8_t touch_spiTransfer(uint8_t data);
-
-/**
- * @brief Read a value from the touch controller
- * @param command Touch controller command
+ * @brief Read a raw 12-bit ADC value from the XPT2046
+ * @param cmd XPT2046 command byte (e.g. 0xD0 for X, 0x90 for Y)
  * @return 12-bit ADC value
  */
-uint16_t touch_read(uint8_t command);
+uint16_t touch_readRaw(uint8_t cmd);
 
 /**
- * @brief Get raw touch coordinates
+ * @brief Get raw touch coordinates with averaging
  * @param x Pointer to store raw X value
  * @param y Pointer to store raw Y value
  * @param z Pointer to store pressure value
@@ -53,7 +42,7 @@ bool touch_getRaw(uint16_t *x, uint16_t *y, uint16_t *z);
 bool touch_getPoint(int16_t *x, int16_t *y);
 
 /**
- * @brief Check if screen is currently being touched
+ * @brief Check if screen is currently being touched (pressure-based)
  * @return true if touch detected
  */
 bool touch_isTouched(void);

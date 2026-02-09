@@ -1,51 +1,26 @@
 /**
  * @file touch_driver.cpp
- * @brief Touch Screen Driver Implementation for XPT2046
+ * @brief Bare Metal Touch Screen Driver Implementation for XPT2046 on SAMD21
+ *
+ * Shares SERCOM1 hardware SPI with the TFT driver.
+ * Uses direct port manipulation for TOUCH_CS pin.
  */
 
 #include "touch_driver.h"
+#include "tft_driver.h" // for spi_transfer()
 
 // ===================================
-// Touch Low Level SPI
+// Touch Low-Level SPI
 // ===================================
 
-void touch_initPins(void)
+uint16_t touch_readRaw(uint8_t cmd)
 {
-    pinMode(T_CS, OUTPUT);
-    pinMode(T_IRQ, INPUT);
-    pinMode(T_DIN, OUTPUT);
-    pinMode(T_DO, INPUT);
-    pinMode(T_CLK, OUTPUT);
-
-    digitalWrite(T_CS, HIGH);
-    digitalWrite(T_CLK, LOW);
-}
-
-uint8_t touch_spiTransfer(uint8_t data)
-{
-    uint8_t reply = 0;
-    for (int8_t i = 7; i >= 0; i--)
-    {
-        digitalWrite(T_CLK, LOW);
-        digitalWrite(T_DIN, (data >> i) & 0x01);
-        digitalWrite(T_CLK, HIGH);
-        reply <<= 1;
-        if (digitalRead(T_DO))
-        {
-            reply |= 1;
-        }
-    }
-    return reply;
-}
-
-uint16_t touch_read(uint8_t command)
-{
-    digitalWrite(T_CS, LOW);
-    touch_spiTransfer(command);
-    uint8_t high = touch_spiTransfer(0x00);
-    uint8_t low = touch_spiTransfer(0x00);
-    digitalWrite(T_CS, HIGH);
-    return ((high << 8) | low) >> 3;
+    CLR_PIN(TOUCH_CS_PORT, TOUCH_CS_PIN); // Select touch controller
+    spi_transfer(cmd);
+    uint8_t hi = spi_transfer(0x00);
+    uint8_t lo = spi_transfer(0x00);
+    SET_PIN(TOUCH_CS_PORT, TOUCH_CS_PIN); // Deselect touch controller
+    return ((hi << 8) | lo) >> 3;         // 12-bit result
 }
 
 // ===================================
@@ -54,12 +29,16 @@ uint16_t touch_read(uint8_t command)
 
 bool touch_isTouched(void)
 {
-    return (digitalRead(T_IRQ) == LOW);
+    // Read Z1 pressure to detect touch
+    uint16_t z = touch_readRaw(XPT2046_CMD_Z1);
+    return (z > PRESSURE_THRESHOLD);
 }
 
 bool touch_getRaw(uint16_t *x, uint16_t *y, uint16_t *z)
 {
-    if (!touch_isTouched())
+    // Read pressure first for quick rejection
+    uint16_t z1 = touch_readRaw(XPT2046_CMD_Z1);
+    if (z1 < PRESSURE_THRESHOLD)
     {
         return false;
     }
@@ -70,26 +49,26 @@ bool touch_getRaw(uint16_t *x, uint16_t *y, uint16_t *z)
 
     for (uint8_t i = 0; i < samples; i++)
     {
-        sumX += touch_read(XPT2046_CMD_X);
-        sumY += touch_read(XPT2046_CMD_Y);
-        sumZ1 += touch_read(XPT2046_CMD_Z1);
-        sumZ2 += touch_read(XPT2046_CMD_Z2);
+        sumX += touch_readRaw(XPT2046_CMD_X);
+        sumY += touch_readRaw(XPT2046_CMD_Y);
+        sumZ1 += touch_readRaw(XPT2046_CMD_Z1);
+        sumZ2 += touch_readRaw(XPT2046_CMD_Z2);
     }
 
     *x = sumX / samples;
     *y = sumY / samples;
 
-    uint16_t z1 = sumZ1 / samples;
-    uint16_t z2 = sumZ2 / samples;
+    uint16_t avgZ1 = sumZ1 / samples;
+    uint16_t avgZ2 = sumZ2 / samples;
 
     // Calculate pressure
-    if (z1 == 0)
+    if (avgZ1 == 0)
     {
         *z = 0;
     }
     else
     {
-        *z = (*x * (z2 - z1)) / z1;
+        *z = (*x * (avgZ2 - avgZ1)) / avgZ1;
     }
 
     return (*z > PRESSURE_THRESHOLD);
@@ -104,8 +83,7 @@ bool touch_getPoint(int16_t *x, int16_t *y)
         return false;
     }
 
-    // Map raw values to screen coordinates
-    // FIXED: Swapped TS_MINX and TS_MAXX to flip horizontally
+    // Map raw ADC values to screen coordinates
     *x = map(rawX, TS_MINX, TS_MAXX, 0, SCREEN_WIDTH);
     *y = map(rawY, TS_MAXY, TS_MINY, 0, SCREEN_HEIGHT);
 

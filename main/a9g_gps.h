@@ -14,19 +14,21 @@
 #define A9G_LOW_PWR_KEY 5
 
 // GPS Data Structure
-typedef struct {
+typedef struct
+{
     bool valid;
     float latitude;
     float longitude;
     float altitude;
     uint8_t satellites;
-    char latDirection;  // 'N' or 'S'
-    char lonDirection;  // 'E' or 'W'
+    char latDirection;   // 'N' or 'S'
+    char lonDirection;   // 'E' or 'W'
     char lastUpdate[20]; // Time string
 } GPSData;
 
 // GPS Debug Info Structure
-typedef struct {
+typedef struct
+{
     char lastCommand[32];
     char lastResponse[256];
     char gpsStatus[64];
@@ -35,30 +37,49 @@ typedef struct {
     int fixAttempts;
 } GPSDebugInfo;
 
-class A9G_GPS {
+// NMEA Circular Buffer
+#define NMEA_BUFFER_SIZE 10
+#define NMEA_MAX_LEN 83
+
+typedef struct
+{
+    char sentences[NMEA_BUFFER_SIZE][NMEA_MAX_LEN];
+    uint8_t writeIndex;
+    uint8_t count;
+} NMEABuffer;
+
+class A9G_GPS
+{
 private:
     bool moduleOn;
     GPSData gpsData;
     GPSDebugInfo debugInfo;
+    NMEABuffer nmeaBuffer;
     unsigned long lastGPSRead;
     unsigned long gpsReadInterval;
-    
+
     String sendCommand(String cmd, unsigned long timeout);
     bool checkModuleState();
     void parseGPSLocation(String response);
     void parseNMEA(String nmea);
-    
+    void addNMEASentence(const char *sentence);
+    void logGPSData();
+    void saveLocationCache(String locationName);
+    String loadLocationCache();
+
 public:
     A9G_GPS();
     bool begin();
     void update();
     GPSData getGPSData();
     GPSDebugInfo getDebugInfo();
+    NMEABuffer getNMEABuffer();
     bool isGPSValid();
     void turnOnGPS();
     void turnOffGPS();
     String getLocationString();
     void refreshDebugInfo();
+    String fetchLocationName();
 };
 
 #endif // A9G_GPS_H

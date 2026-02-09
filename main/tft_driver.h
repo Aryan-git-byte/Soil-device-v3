@@ -1,8 +1,9 @@
 /**
  * @file tft_driver.h
- * @brief TFT Display Driver for ILI9341
+ * @brief Bare Metal TFT Display Driver for ILI9341 on SAMD21
  *
- * Low-level SPI communication and display initialization
+ * Uses SERCOM1 hardware SPI with direct register access.
+ * No external libraries required.
  */
 
 #ifndef TFT_DRIVER_H
@@ -12,24 +13,36 @@
 #include "config.h"
 
 // ===================================
+// SPI Bus Functions (SERCOM1)
+// ===================================
+
+/**
+ * @brief Initialize SERCOM1 as hardware SPI master
+ *
+ * Configures PA16 (MOSI), PA17 (SCK), PA19 (MISO) via SERCOM1.
+ * SPI clock: 12 MHz (48 MHz / 4).
+ */
+void spi_init(void);
+
+/**
+ * @brief Transfer one byte over hardware SPI
+ * @param data Byte to send
+ * @return Byte received from slave
+ */
+uint8_t spi_transfer(uint8_t data);
+
+// ===================================
 // TFT Driver Functions
 // ===================================
 
 /**
- * @brief Initialize TFT GPIO pins
- */
-void tft_initPins(void);
-
-/**
  * @brief Initialize the ILI9341 display
+ *
+ * Configures control pin directions, performs hardware reset,
+ * and sends the full ILI9341 initialization sequence.
+ * spi_init() must be called before this function.
  */
 void tft_init(void);
-
-/**
- * @brief Write a single byte via software SPI
- * @param data Byte to write
- */
-void tft_spiWrite(uint8_t data);
 
 /**
  * @brief Write a command byte to the display
@@ -50,7 +63,7 @@ void tft_writeData(uint8_t data);
 void tft_writeData16(uint16_t data);
 
 /**
- * @brief Set the drawing window
+ * @brief Set the drawing address window
  * @param x0 Start X coordinate
  * @param y0 Start Y coordinate
  * @param x1 End X coordinate
@@ -59,17 +72,17 @@ void tft_writeData16(uint16_t data);
 void tft_setWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
 /**
- * @brief Begin bulk data write (call after setWindow)
+ * @brief Begin bulk pixel data write (DC=HIGH, CS=LOW)
  */
 void tft_beginWrite(void);
 
 /**
- * @brief End bulk data write
+ * @brief End bulk pixel data write (CS=HIGH)
  */
 void tft_endWrite(void);
 
 /**
- * @brief Write a 16-bit color during bulk write
+ * @brief Write a 16-bit color during bulk write (no CS/DC toggling)
  * @param color RGB565 color
  */
 void tft_writeColor(uint16_t color);
