@@ -1,6 +1,25 @@
 {
     "configurations": [
         {
+            "name": "Linux Simulator",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/SDL2",
+                "/usr/include",
+                "/usr/local/include"
+            ],
+            "defines": [
+                "ARDUINO=10819",
+                "ARDUINO_ARCH_SAMD",
+                "__SAMD21G18A__",
+                "USBCON"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",

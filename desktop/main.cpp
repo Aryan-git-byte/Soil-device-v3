@@ -10,6 +10,7 @@
 
 // SDL hooks
 extern void sdl_init();
+extern void sdl_present(); // Fix: This was missing
 extern bool touch_getPoint(int16_t*, int16_t*);
 
 int main()
@@ -33,11 +34,17 @@ int main()
     {
         int16_t x,y;
 
+        // Handle Touch
         if(touch_getPoint(&x,&y))
             ui_handleTouch(x,y);
 
+        // Update UI Logic
         ui_update();
 
+        // Fix: Push the drawing to the window!
+        sdl_present();
+
+        // Limit FPS to ~60
         SDL_Delay(16);
     }
 
