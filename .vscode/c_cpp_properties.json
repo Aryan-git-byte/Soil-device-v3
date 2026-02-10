@@ -1,52 +1,23 @@
 {
     "configurations": [
         {
-            "name": "Linux Simulator",
+            "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/include/SDL2",
-                "/usr/include",
-                "/usr/local/include"
+                "/usr/include/**",
+                "/usr/local/include/**",
+                "/usr/lib/gcc/x86_64-linux-gnu/*/include",
+                "/usr/include/c++/*",
+                "/usr/include/x86_64-linux-gnu/c++/*"
             ],
             "defines": [
                 "ARDUINO=10819",
-                "ARDUINO_ARCH_SAMD",
-                "__SAMD21G18A__",
                 "USBCON"
             ],
             "compilerPath": "/usr/bin/g++",
-            "cStandard": "c11",
-            "cppStandard": "c++11",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64"
-        },
-        {
-            "name": "Win32",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "C:/Users/Science Section/AppData/Local/Arduino15/packages/arduino/hardware/samd/1.8.14/cores/arduino",
-                "C:/Users/Science Section/AppData/Local/Arduino15/packages/arduino/hardware/samd/1.8.14/variants/arduino_zero",
-                "C:/Users/Science Section/AppData/Local/Arduino15/packages/arduino/hardware/samd/1.8.14/libraries/**",
-                "C:/Users/Science Section/AppData/Local/Arduino15/packages/arduino/tools/**"
-            ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE",
-                "ARDUINO=10819",
-                "ARDUINO_SAMD_ZERO",
-                "ARDUINO_ARCH_SAMD",
-                "__SAMD21G18A__",
-                "USB_VID=0x2341",
-                "USB_PID=0x804d",
-                "USBCON",
-                "F_CPU=48000000L"
-            ],
-            "windowsSdkVersion": "10.0.22621.0",
-            "compilerPath": "C:/Users/Science Section/AppData/Local/Arduino15/packages/arduino/tools/arm-none-eabi-gcc/7-2017q4/bin/arm-none-eabi-g++.exe",
-            "cStandard": "c11",
-            "cppStandard": "c++11",
-            "intelliSenseMode": "gcc-arm",
-            "forcedInclude": []
         }
     ],
     "version": 4

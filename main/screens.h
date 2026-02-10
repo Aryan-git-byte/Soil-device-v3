@@ -3,9 +3,8 @@
 
 #include "pages/home/home_page.h"
 #include "pages/files/files_page.h"
-// #include "pages/gps/gps_page.h"  <-- Do this for GPS too
 
-// Keep the others here until you move them
+// Remaining screens are still in screens.cpp for now
 void screen_ai_draw(void);
 void screen_settings_draw(void);
 void screen_input_draw(void);
